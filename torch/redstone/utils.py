@@ -1,4 +1,5 @@
 import collections
+import types
 
 
 class Meter:
@@ -16,11 +17,7 @@ class Meter:
         self.v[k] += v
 
 
-class ObjectProxy(object):
-    def __init__(self, **kwargs) -> None:
-        super().__init__()
-        for name, val in kwargs.items():
-            setattr(self, name, val)
+class ObjectProxy(types.SimpleNamespace):
 
     def __getattr__(self, name):
         proxy = ObjectProxy()
