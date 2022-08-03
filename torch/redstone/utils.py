@@ -5,7 +5,7 @@ from typing import Callable, Sequence, Type, Union
 import typing
 import numpy
 import torch
-from torch.utils.data import default_collate
+from torch.utils.data.dataloader import default_collate
 
 
 class Meter:
