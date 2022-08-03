@@ -13,5 +13,5 @@ class ResultInterface:
 
 
 class EpochResultInterface:
-    train: ResultInterface
-    val: ResultInterface
+    train: Optional[ResultInterface]
+    val: Optional[ResultInterface]
