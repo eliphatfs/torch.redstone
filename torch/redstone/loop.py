@@ -2,7 +2,7 @@ from typing import List, Sequence, Optional, Union
 import torch
 import torch.optim
 import torch.nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import tqdm
 
 from .loss import Loss, DefaultLoss
@@ -21,7 +21,8 @@ class DefaultLoop:
         loss: Optional[Loss] = None,
         metrics: Optional[Sequence[Union[Metric, EllipsisType]]] = None,
         processors: Sequence[Processor] = [],
-        optimizer: Union[str, torch.optim.Optimizer] = 'adam'
+        optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+        batch_size=32, num_workers=0
     ) -> None:
         """
         Construct the default training loop.
@@ -30,10 +31,27 @@ class DefaultLoop:
             `None` for task defaults.
             A list for custom ones.
             Ellipsis in list means appending task defaults.
+            Default displayed name for a metric is its class name.
+            This can be overridden by setting `metric.name`.
+            In returned `ObjectProxy` for metrics, attribute names are lower-case displayed names.
+
+        Notes on `loss`:
+            `None` for taking `metrics.loss` as loss.
+
+        Notes on `optimizer`:
+            It may be `torch.optim.Optimizer` instance or name of optimizer.
+            Supported names are adaptive optimizers: `adam`, `adadelta` and `rmsprop`.
+
+        Notes on data loaders:
+            `batch_size` and `num_workers` are ignored if the task generates DataLoaders already.
+            You may override the creation behavior in `create_data_loader`.
         """
         self.task = task
         self.model = model
-        self.train, self.val = task.data()
+        train, val = task.data()
+        self.batch_size, self.num_workers = batch_size, num_workers
+        self.train = self.create_data_loader(train, True)
+        self.val = self.create_data_loader(val, False)
 
         self.metrics: List[Metric] = []
         if metrics is None:
@@ -60,6 +78,9 @@ class DefaultLoop:
                 raise ValueError("Unsupported auto-optimizer", optimizer)
         self.optimizer = optimizer
         self.processors = processors
+
+    def create_data_loader(self, data: Union[Dataset, list], is_train: bool):
+        return DataLoader(data, self.batch_size, is_train, num_workers=self.num_workers)
 
     def add_metric(self, metric: Metric):
         self.metrics.append(metric)
