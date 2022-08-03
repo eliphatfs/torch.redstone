@@ -1,9 +1,9 @@
 import collections
+import random
 import types
 from typing import Callable, Sequence, Union
 import typing
 import numpy
-
 import torch
 
 
@@ -34,6 +34,10 @@ T = typing.TypeVar('T')
 
 
 def tensor_catamorphism(data: T, func: Callable[[torch.Tensor], torch.Tensor]) -> T:
+    """
+    Transforms `torch.Tensor` or `list`, `dict`, `ObjectProxy`, `tuple`, `set` of `torch.Tensor` with `func`.
+    Nested containers are also supported. Objects not recognized are returned as-is.
+    """
     if isinstance(data, torch.Tensor):
         return func(data)
     if isinstance(data, ObjectProxy):
@@ -52,14 +56,23 @@ def tensor_catamorphism(data: T, func: Callable[[torch.Tensor], torch.Tensor]) -
 
 
 def torch_to(data: T, reference: Union[str, torch.device, torch.Tensor]) -> T:
+    """
+    Recursively send `torch.Tensor` in `list`, `dict`, `ObjectProxy`, `tuple`, `set` to `reference`.
+    """
     return tensor_catamorphism(data, lambda x: x.to(reference))
 
 
 def torch_to_numpy(data: T) -> T:
+    """
+    Recursively fetch `torch.Tensor` in `list`, `dict`, `ObjectProxy`, `tuple`, `set` as numpy array.
+    """
     return tensor_catamorphism(data, lambda x: x.detach().cpu().numpy())
 
 
 def cat_proxies(proxies: Sequence[ObjectProxy], axis=0):
+    """
+    Merge (concatenate) sequence of `ObjectProxy` whose elements are numpy arrays.
+    """
     result = ObjectProxy()
     for proxy in proxies:
         for k in proxy.__dict__.keys():
@@ -69,3 +82,12 @@ def cat_proxies(proxies: Sequence[ObjectProxy], axis=0):
     for k in result.__dict__.keys():
         setattr(result, k, numpy.concatenate(getattr(result, k), axis=axis))
     return result
+
+
+def seed(seed: int):
+    """
+    Set random seeds to `seed` for `torch`, `numpy` and python `random`.
+    """
+    torch.manual_seed(seed)
+    numpy.random.seed(seed)
+    random.seed(seed)
