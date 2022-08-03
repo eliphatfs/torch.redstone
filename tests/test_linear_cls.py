@@ -9,12 +9,12 @@ import numpy
 
 class Acc(rst.Metric):
     def __call__(self, inputs, model_return) -> torch.Tensor:
-        return ((model_return.logits > 0) == (inputs.y > 0)).float().mean()
+        return ((model_return > 0) == (inputs.y > 0)).float().mean()
 
 
 class Loss(rst.Metric):
-    def __call__(self, inputs: ObjectProxy, model_return: ObjectProxy) -> torch.Tensor:
-        return F.binary_cross_entropy_with_logits(model_return.logits, inputs.y)
+    def __call__(self, inputs: ObjectProxy, model_return) -> torch.Tensor:
+        return F.binary_cross_entropy_with_logits(model_return, inputs.y)
 
 
 class SimpleClassificationTask(rst.Task):
@@ -40,13 +40,16 @@ class Model(torch.nn.Module):
         )
 
     def forward(self, proxy):
-        return ObjectProxy(logits=self.cls(proxy.x))
+        return self.cls(proxy.x)
 
 
 class TestLinearClassifier(unittest.TestCase):
     def test_train_linear_cls(self):
         rst.seed(42)
-        loop = rst.DefaultLoop(Model(), SimpleClassificationTask(), optimizer='adadelta')
+        loop = rst.DefaultLoop(
+            Model(), SimpleClassificationTask(), optimizer='adadelta',
+            processors=[rst.Logger(), rst.BestSaver()]
+        )
         self.assertGreater(loop.run(1).val.metrics.acc, 0.8)
 
 

@@ -5,10 +5,10 @@ from .types import EpochResultInterface
 
 
 class Processor:
-    def pre_forward(self, inputs: ObjectProxy, model: nn.Module):
+    def pre_forward(self, inputs, model: nn.Module):
         pass
 
-    def post_forward(self, inputs: ObjectProxy, model: nn.Module, model_return: ObjectProxy):
+    def post_forward(self, inputs, model: nn.Module, model_return):
         pass
 
     def pre_epoch(self, model: nn.Module, epoch: int):

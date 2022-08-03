@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from .utils import ObjectProxy
 
@@ -8,8 +8,8 @@ EllipsisType = type(...)
 
 class ResultInterface:
     metrics: ObjectProxy
-    inputs: Optional[ObjectProxy]
-    preds: Optional[ObjectProxy]
+    inputs: Optional[Any]
+    preds: Optional[Any]
 
 
 class EpochResultInterface:

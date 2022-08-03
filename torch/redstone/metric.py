@@ -9,5 +9,5 @@ class Metric:
         self.name = self.__class__.__name__
 
     @abstractmethod
-    def __call__(self, inputs: ObjectProxy, model_return: ObjectProxy) -> torch.Tensor:
+    def __call__(self, inputs, model_return) -> torch.Tensor:
         raise NotImplementedError
