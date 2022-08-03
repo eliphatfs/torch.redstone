@@ -6,17 +6,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04]
+        os: [ubuntu-20.04]
 
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.1.2
-        env:
-          CIBW_ARCHS: auto64
+      - name: Build wheels (pure python)
+        run: pip3 wheel -w ./wheelhouse .
 
       - uses: actions/upload-artifact@v2
         with:
