@@ -14,11 +14,11 @@ jobs:
           submodules: recursive
 
       - name: Build wheels (pure python)
-        run: pip3 wheel -w ./wheelhouse .
+        run: python setup.py bdist_wheel
 
       - uses: actions/upload-artifact@v2
         with:
-          path: ./wheelhouse/*.whl
+          path: ./dist/*.whl
   run:
     name: Test on ${{ matrix.os }} with python ${{ matrix.python-version }}
     needs: [build]
@@ -43,7 +43,7 @@ jobs:
         run: pip3 install torch torchvision torchaudio
 
       - name: Install torch.redstone
-        run: python -m pip install --no-index --find-links=./built_wheels torch.redstone
+        run: python -m pip install --find-links=./built_wheels torch.redstone
       
       - name: Run tests
         run: python run_tests.py
