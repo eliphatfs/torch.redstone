@@ -28,7 +28,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        'tqdm'
+        'tqdm', 'numpy'
     ],
     python_requires='~=3.6',
 )
