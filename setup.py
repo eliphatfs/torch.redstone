@@ -3,6 +3,9 @@ import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
+with open("torch/redstone/version.py", "r") as fh:
+    exec(fh.read())
+    __version__: str
 
 
 def packages():
@@ -11,7 +14,7 @@ def packages():
 
 setuptools.setup(
     name="torch-redstone",
-    version="0.0.1",
+    version=__version__,
     author="flandre.info",
     author_email="flandre@scarletx.cn",
     description="Redstone torch, common boilerplates for PyTorch.",
@@ -23,6 +26,9 @@ setuptools.setup(
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
+    ],
+    install_requires=[
+        'tqdm'
     ],
     python_requires='~=3.6',
 )
