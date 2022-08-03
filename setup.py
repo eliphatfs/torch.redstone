@@ -13,14 +13,14 @@ def packages():
 
 
 setuptools.setup(
-    name="torch-redstone",
+    name="torch.redstone",
     version=__version__,
     author="flandre.info",
     author_email="flandre@scarletx.cn",
     description="Redstone torch, common boilerplates for PyTorch.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/",
+    url="https://github.com/eliphatfs/torch.redstone",
     packages=packages(),
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
