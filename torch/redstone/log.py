@@ -9,7 +9,7 @@ module_load_time = int(time.time())
 
 
 class Logger(Processor):
-    def __init__(self, exp_name: str = "exp", directory: str = "./logs/"):
+    def __init__(self, exp_name: str = "training", directory: str = "./logs/"):
         super().__init__()
         self.exp_name = exp_name
         self.path = directory
@@ -17,7 +17,7 @@ class Logger(Processor):
         os.makedirs(self.path, exist_ok=True)
 
     def get_file_path(self):
-        filename = "training_%s_%d.csv" % (self.exp_name, module_load_time)
+        filename = "%s_%d.csv" % (self.exp_name, module_load_time)
         return os.path.join(self.path, filename)
 
     def write_log(self, *data):

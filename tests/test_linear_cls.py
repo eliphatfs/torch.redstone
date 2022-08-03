@@ -46,10 +46,7 @@ class Model(torch.nn.Module):
 class TestLinearClassifier(unittest.TestCase):
     def test_train_linear_cls(self):
         rst.seed(42)
-        loop = rst.DefaultLoop(
-            Model(), SimpleClassificationTask(), optimizer='adadelta',
-            processors=[rst.Logger()]
-        )
+        loop = rst.DefaultLoop(Model(), SimpleClassificationTask(), optimizer='adadelta')
         self.assertGreater(loop.run(1).val.metrics.acc, 0.8)
 
 

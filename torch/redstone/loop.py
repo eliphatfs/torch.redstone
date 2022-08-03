@@ -11,6 +11,7 @@ from .task import Task
 from .processor import Processor
 from .utils import Meter, torch_to, ObjectProxy, torch_to_numpy, cat_proxies, collate_support_object_proxy
 from .types import EllipsisType, ResultInterface
+from .log import Logger
 
 
 class DefaultLoop:
@@ -20,7 +21,7 @@ class DefaultLoop:
         task: Task,
         loss: Optional[Loss] = None,
         metrics: Optional[Sequence[Union[Metric, EllipsisType]]] = None,
-        processors: Sequence[Processor] = [],
+        processors: Sequence[Processor] = [Logger()],
         optimizer: Union[str, torch.optim.Optimizer] = 'adam',
         batch_size=32, num_workers=0
     ) -> None:
