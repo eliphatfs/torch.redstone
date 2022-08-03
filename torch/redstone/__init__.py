@@ -1,6 +1,7 @@
 from .utils import *
 
 from .task import *
+from .nn import *
 
 from .metric import *
 from .loss import *

@@ -9,7 +9,7 @@ from .loss import Loss, DefaultLoss
 from .metric import Metric
 from .task import Task
 from .processor import Processor
-from .utils import Meter, torch_to, ObjectProxy, torch_to_numpy, cat_proxies
+from .utils import Meter, torch_to, ObjectProxy, torch_to_numpy, cat_proxies, collate_support_object_proxy
 from .types import EllipsisType, ResultInterface
 
 
@@ -80,21 +80,24 @@ class DefaultLoop:
         self.processors = processors
 
     def create_data_loader(self, data: Union[Dataset, list], is_train: bool):
-        return DataLoader(data, self.batch_size, is_train, num_workers=self.num_workers)
+        return DataLoader(
+            data, self.batch_size, is_train, num_workers=self.num_workers,
+            collate_fn=collate_support_object_proxy
+        )
 
     def add_metric(self, metric: Metric):
         self.metrics.append(metric)
 
     def run(self, num_epochs, train=True, val=True, max_steps=None):
-        for epoch in num_epochs:
+        for epoch in range(num_epochs):
             for prx in self.processors:
                 prx.pre_epoch(self.model, epoch)
-            if train:
-                train_rs = self.epoch(True, epoch, max_steps=max_steps)
-            if val:
-                val_rs = self.epoch(False, epoch, max_steps=max_steps)
+            train_rs = self.epoch(True, epoch, max_steps=max_steps) if train else None
+            val_rs = self.epoch(False, epoch, max_steps=max_steps) if val else None
+            epoch_rs = ObjectProxy(train=train_rs, val=val_rs)
             for prx in self.processors:
-                prx.post_epoch(self.model, epoch, ObjectProxy(train=train_rs, val=val_rs))
+                prx.post_epoch(self.model, epoch, epoch_rs)
+        return epoch_rs
 
     def epoch(
         self,
@@ -122,7 +125,7 @@ class DefaultLoop:
             d = torch_to(d, ref_pt.device)
             for prx in self.processors:
                 prx.pre_forward(d, self.model)
-            output = self.model(*d)
+            output = self.model(d)
             for prx in self.processors:
                 prx.post_forward(d, self.model, output)
             metvals = ObjectProxy()
@@ -141,7 +144,7 @@ class DefaultLoop:
             for k in sorted(meter.k):
                 desc += " %s: %.4f" % (k, meter[k])
             prog.set_description(desc)
-        result.metrics = ObjectProxy({k.lower(): meter[k] for k in sorted(meter.k)})
+        result.metrics = ObjectProxy(**{k.lower(): meter[k] for k in sorted(meter.k)})
         result.inputs = cat_proxies(result.inputs) if return_input else None
         result.preds = cat_proxies(result.preds) if return_pred else None
         return result
