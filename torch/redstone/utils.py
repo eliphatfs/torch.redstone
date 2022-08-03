@@ -23,6 +23,18 @@ class Meter:
         self.v[k] += v
 
 
+class AttrPath:
+    def __init__(self, get=lambda x: x, set=lambda x, v: None) -> None:
+        self.get = get
+        self.set = set
+
+    def __getattr__(self, attr):
+        return AttrPath(
+            lambda x: getattr(self.get(x), attr),
+            lambda x, v: setattr(self.get(x), attr, v)
+        )
+
+
 class ObjectProxy(types.SimpleNamespace):
 
     def __getattr__(self, name):
