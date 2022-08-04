@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.optim
 
 from .utils import ObjectProxy
 from .types import EpochResultInterface
@@ -9,6 +10,9 @@ class Processor:
         pass
 
     def post_forward(self, inputs, model: nn.Module, model_return):
+        pass
+
+    def post_step(self, model: nn.Module, optimizer: torch.optim.Optimizer):
         pass
 
     def pre_epoch(self, model: nn.Module, epoch: int):
