@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Type, Union
+from typing import List, Type, Union
 import torch
 
 from .metric import Metric
@@ -48,7 +48,7 @@ class BestSaver(Processor):
     def __init__(
         self, metric: Union[AttrPath, str, Type[Metric]] = "acc",
         model_name: str = "model", directory: str = "./logs/",
-        lower_better: bool = False
+        lower_better: bool = False, verbose=1
     ) -> None:
         super().__init__()
         self.model_name = model_name
@@ -58,11 +58,19 @@ class BestSaver(Processor):
         self.metric_attr = metric
         self.best = float('inf') if lower_better else -float('inf')
         self.lower_better = lower_better
+        self.verbose = verbose
         os.makedirs(self.path, exist_ok=True)
 
     def get_file_path(self):
         filename = "%s_%d.dat" % (self.model_name, module_load_time)
         return os.path.join(self.path, filename)
+
+    def get_lastest_save(self):
+        fs: List[str] = os.listdir(self.path)
+        prefix = self.model_name + '_'
+        paths = [os.path.join(self.path, x) for x in fs
+                 if x.startswith(prefix) and x.endswith('.dat')]
+        return max(paths, key=lambda x: os.stat(x).st_mtime)
 
     def post_epoch(self, model, epoch, epoch_result: EpochResultInterface):
         if isinstance(self.metric_attr, str):
@@ -75,10 +83,14 @@ class BestSaver(Processor):
         if self.lower_better:
             if met < self.best:
                 self.best = met
+                if self.verbose >= 1:
+                    print("New best!")
                 torch.save(model.state_dict(), self.get_file_path())
         else:
             if met > self.best:
                 self.best = met
+                if self.verbose >= 1:
+                    print("New best!")
                 torch.save(model.state_dict(), self.get_file_path())
 
 
