@@ -140,7 +140,7 @@ class DefaultLoop:
                 loss.backward()
                 self.optimizer.step()
                 for prx in self.processors:
-                    prx.post_step(self.model, self.optimizer)
+                    prx.post_step(self.model, self.optimizer, metvals)
             if return_pred:
                 result.preds.append(torch_to_numpy(output))
             desc = "VT"[training] + " %02d" % epoch
