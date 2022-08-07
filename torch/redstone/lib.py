@@ -54,9 +54,15 @@ class AdvTrainingPGD(Processor):
         def _cata_fill(vals):
             return lambda x: collect[x] + vals[x] if isinstance(x, Index) else x
 
+        def _cata_detach(tnsr):
+            if isinstance(tnsr, Tensor):
+                return tnsr.detach().clone()
+            return tnsr
+
         def _wrap_fun(*vals):
             fill = container_catamorphism(indexed, _cata_fill(vals))
-            return self.loss(inputs, model(fill))
+            loss_inputs = container_catamorphism(inputs, _cata_detach)
+            return self.loss(loss_inputs, model(fill))
 
         indexed = container_catamorphism(inputs, _cata_indexing)
 
@@ -66,4 +72,5 @@ class AdvTrainingPGD(Processor):
                 for i in range(len(collect)):
                     perturb[i] += torch.sign(grad[i]) * self.step
                     perturb[i] = torch.clamp(perturb[i], -self.eps, self.eps)
+        # print(inputs, container_catamorphism(indexed, _cata_fill(perturb)))
         return container_catamorphism(indexed, _cata_fill(perturb))
