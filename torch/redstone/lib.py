@@ -28,6 +28,8 @@ class AdvTrainingPGD(Processor):
         self.step = eps * step_scale
 
     def pre_forward(self, inputs, model: nn.Module):
+        if not model.training:
+            return
         collect = []
         perturb = []
 
