@@ -1,7 +1,7 @@
 import collections
 import random
 import types
-from typing import Callable, Sequence, Type, Union
+from typing import Any, Callable, Sequence, Type, Union
 import typing
 import numpy
 import torch
@@ -33,6 +33,14 @@ class AttrPath:
             lambda x: getattr(self.get(x), attr),
             lambda x, v: setattr(self.get(x), attr, v)
         )
+
+
+def visit_attr(Q, attr: Union[AttrPath, str, Callable[[Any], torch.Tensor]]):
+    if isinstance(attr, str):
+        return getattr(Q, attr)
+    if isinstance(attr, AttrPath):
+        return attr.get(Q)
+    return attr(Q)
 
 
 class ObjectProxy(types.SimpleNamespace):

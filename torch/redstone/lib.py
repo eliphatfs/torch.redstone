@@ -1,3 +1,4 @@
+from typing import List, Union, Callable, Any
 import torch
 import torch.autograd.functional as ad
 import torch.nn as nn
@@ -5,7 +6,7 @@ from torch import Tensor
 
 from .processor import Processor
 from .metric import Metric
-from .utils import container_catamorphism
+from .utils import container_catamorphism, AttrPath, visit_attr
 
 
 class Index:
@@ -17,7 +18,11 @@ class Index:
 
 
 class AdvTrainingPGD(Processor):
-    def __init__(self, loss_metric: Metric, eps=0.03, step_scale=0.5, n_steps=8) -> None:
+    def __init__(
+        self, loss_metric: Metric,
+        no_perturb_attrs: List[Union[AttrPath, str, Callable[[Any], Tensor]]]=[],
+        eps=0.03, step_scale=0.5, n_steps=8
+    ) -> None:
         """
         Processor for L_inf PGD adversarial (robust) training.
         """
@@ -26,15 +31,21 @@ class AdvTrainingPGD(Processor):
         self.n_steps = n_steps
         self.eps = eps
         self.step = eps * step_scale
+        self.skipped = no_perturb_attrs
 
     def pre_forward(self, inputs, model: nn.Module):
         if not model.training:
             return
+        skip = []
         collect = []
         perturb = []
+        for skip_attr in self.skipped:
+            skip.append(visit_attr(inputs, skip_attr))
 
         def _cata_indexing(tnsr):
             if isinstance(tnsr, Tensor):
+                if any(x is tnsr for x in skip):
+                    return tnsr
                 collect.append(tnsr)
                 perturb.append(torch.zeros_like(tnsr))
                 return Index(len(collect) - 1)
