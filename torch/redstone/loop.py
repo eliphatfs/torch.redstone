@@ -125,10 +125,14 @@ class DefaultLoop:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
             for prx in self.processors:
-                prx.pre_forward(d, self.model)
+                ret = prx.pre_forward(d, self.model)
+                if ret is not None:
+                    d = ret
             output = self.model(d)
             for prx in self.processors:
-                prx.post_forward(d, self.model, output)
+                ret = prx.post_forward(d, self.model, output)
+                if ret is not None:
+                    output = ret
             metvals = ObjectProxy()
             for met in self.metrics:
                 mval = met(d, output)
