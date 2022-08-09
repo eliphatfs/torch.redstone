@@ -1,4 +1,4 @@
-from typing import List, Union, Callable, Any
+from typing import List, Sequence, Union, Callable, Any
 import torch
 import torch.autograd.functional as ad
 import torch.nn as nn
@@ -74,3 +74,26 @@ class AdvTrainingPGD(Processor):
                     perturb[i] = torch.clamp(perturb[i], -self.eps, self.eps)
         # print(inputs, container_catamorphism(indexed, _cata_fill(perturb)))
         return container_catamorphism(indexed, _cata_fill(perturb))
+
+
+class Lambda(nn.Module):
+    def __init__(self, lam) -> None:
+        super().__init__()
+        self.lam = lam
+
+    def forward(self, inputs):
+        return self.lam(inputs)
+
+
+def supercat(tensors: Sequence[Tensor], dim: int = 0):
+    """
+    Similar to torch.cat, but supports broadcasting. For example:
+
+    [M, 32], [N, 1, 64] ---supercat 2--> [N, M, 96]
+    """
+    ndim = max(x.ndim for x in tensors)
+    tensors = [x.reshape(*[1] * (ndim - x.ndim), *x.shape) for x in tensors]
+    shape = [max(x.size(i) for x in tensors) for i in range(ndim)]
+    shape[dim] = -1
+    tensors = [torch.broadcast_to(x, shape) for x in tensors]
+    return torch.cat(tensors, dim)
