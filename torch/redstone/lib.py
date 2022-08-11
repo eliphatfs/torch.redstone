@@ -1,4 +1,5 @@
-from typing import List, Literal, Sequence, Union, Callable, Any
+from typing import List, Sequence, Union, Callable, Any
+from typing_extensions import Literal
 import torch
 import torch.autograd.functional as ad
 import torch.nn as nn
