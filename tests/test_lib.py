@@ -25,6 +25,13 @@ class TestLib(unittest.TestCase):
             [65, 8]
         )
 
+    def test_mlp_shapes(self):
+        mlp = rst.MLP([32, 100, 256, 100, 128], 1)
+        self.assertSequenceEqual(
+            mlp(torch.rand(4, 32, 5)).shape,
+            [4, 128, 5]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

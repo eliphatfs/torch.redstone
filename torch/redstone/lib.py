@@ -1,7 +1,8 @@
-from typing import List, Sequence, Union, Callable, Any
+from typing import List, Literal, Sequence, Union, Callable, Any
 import torch
 import torch.autograd.functional as ad
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 from .processor import Processor
@@ -97,3 +98,41 @@ def supercat(tensors: Sequence[Tensor], dim: int = 0):
     shape[dim] = -1
     tensors = [torch.broadcast_to(x, shape) for x in tensors]
     return torch.cat(tensors, dim)
+
+
+class MLP(nn.Module):
+    def __init__(
+        self,
+        sizes: List[int],
+        n_group_dims: Literal[0, 1, 2, 3] = 0,
+        activation: Callable[[Tensor], Tensor] = F.relu,
+        norm: Literal['batch', 'instance', 'layer', None] = 'batch'
+    ) -> None:
+        """
+        Multi-layer perceptron (Fully connected). The output layer is also normalized and activated.
+
+        sizes: sizes of layers, including the input. [n_in, h_1, h_2, ..., n_out].
+        n_group_dims: 0 if input is of shape [B, C], 1 if [B, C, N], 2 if [B, C, H, W], 3 if [B, C, D, H, W].
+        activation: a `Tensor -> Tensor` function like `torch.relu`. Defaults to `relu`.
+        norm: 'batch', 'instance', or `None`. Normalization layers type.
+        """
+        super().__init__()
+        lin = [lambda a, b, _: nn.Linear(a, b), nn.Conv1d, nn.Conv2d, nn.Conv3d][n_group_dims]
+        norm_dict = {
+            'batch': [nn.BatchNorm1d, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d],
+            'instance': [nn.InstanceNorm1d, nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d]
+        }
+        self.layers = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        units = sizes[0]
+        for units_latter in sizes[1:]:
+            self.layers.append(lin(units, units_latter, 1))
+            if norm is not None:
+                self.norms.append(norm_dict[norm][n_group_dims](units_latter))
+            units = units_latter
+        self.activation = activation
+
+    def forward(self, x):
+        for layer, norm in zip(self.layers, self.norms):
+            x = self.activation(norm(layer(x)))
+        return x
