@@ -14,6 +14,12 @@ from .types import EllipsisType, ResultInterface
 from .log import Logger
 
 
+def take_first(iterable, n):
+    iterator = iter(iterable)
+    for _ in range(n):
+        yield next(iterator)
+
+
 class DefaultLoop:
     def __init__(
         self,
@@ -116,7 +122,7 @@ class DefaultLoop:
         ref_pt = next(self.model.parameters())
         torch.set_grad_enabled(training)
         if max_steps is not None:
-            prog = tqdm.tqdm(zip(loader, range(max_steps)), total=max_steps)
+            prog = tqdm.tqdm(take_first(loader, max_steps), total=max_steps)
         else:
             prog = tqdm.tqdm(loader)
         result: ResultInterface = ObjectProxy(metrics=None, inputs=[], preds=[])
