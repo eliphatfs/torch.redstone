@@ -147,7 +147,7 @@ class DefaultLoop:
                     prx.post_step(self.model, self.optimizer, metvals)
             if return_pred:
                 result.preds.append(torch_to_numpy(output))
-            desc = "VT"[training] + " %02d" % epoch
+            desc = "VT"[training] + (" %02d" % epoch if epoch is not None else "")
             for k in sorted(meter.k):
                 desc += " %s: %.4f" % (k, meter[k])
             prog.set_description(desc)
