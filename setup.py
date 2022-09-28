@@ -3,13 +3,15 @@ import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-with open("torch/redstone/version.py", "r") as fh:
+with open("torch_redstone/version.py", "r") as fh:
     exec(fh.read())
     __version__: str
 
 
 def packages():
-    return ['torch.' + pkg for pkg in setuptools.find_packages('torch')]
+    return [
+        'torch.' + pkg for pkg in setuptools.find_packages('torch')
+    ] + setuptools.find_packages(exclude=['torch', 'tests'])
 
 
 setuptools.setup(
