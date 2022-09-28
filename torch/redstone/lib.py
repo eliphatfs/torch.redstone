@@ -87,6 +87,15 @@ class Lambda(nn.Module):
         return self.lam(inputs)
 
 
+class GetItem(nn.Module):
+    def __init__(self, index) -> None:
+        super().__init__()
+        self.index = index
+
+    def forward(self, inputs):
+        return inputs[self.index]
+
+
 def supercat(tensors: Sequence[Tensor], dim: int = 0):
     """
     Similar to torch.cat, but supports broadcasting. For example:
@@ -107,7 +116,7 @@ class MLP(nn.Module):
         sizes: List[int],
         n_group_dims: Literal[0, 1, 2, 3] = 0,
         activation: Callable[[Tensor], Tensor] = F.relu,
-        norm: Literal['batch', 'instance', 'layer', None] = 'batch'
+        norm: Literal['batch', 'instance', None] = 'batch'
     ) -> None:
         """
         Multi-layer perceptron (Fully connected). The output layer is also normalized and activated.
@@ -130,6 +139,8 @@ class MLP(nn.Module):
             self.layers.append(lin(units, units_latter, 1))
             if norm is not None:
                 self.norms.append(norm_dict[norm][n_group_dims](units_latter))
+            else:
+                self.norms.append(Lambda(lambda x: x))
             units = units_latter
         self.activation = activation
 

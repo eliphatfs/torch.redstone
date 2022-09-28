@@ -31,6 +31,23 @@ class TestLib(unittest.TestCase):
             mlp(torch.rand(4, 32, 5)).shape,
             [4, 128, 5]
         )
+        mlp = rst.MLP([32, 100, 256, 100, 128], 2)
+        self.assertSequenceEqual(
+            mlp(torch.rand(4, 32, 5, 7)).shape,
+            [4, 128, 5, 7]
+        )
+        mlp = rst.MLP([32, 100, 256, 100, 128], 0)
+        self.assertSequenceEqual(
+            mlp(torch.rand(4, 32)).shape,
+            [4, 128]
+        )
+
+    def test_mlp_nonorm(self):
+        mlp = rst.MLP([32, 100, 256, 100, 128], 1, norm=None)
+        self.assertSequenceEqual(
+            mlp(torch.rand(4, 32, 5)).shape,
+            [4, 128, 5]
+        )
 
 
 if __name__ == "__main__":
