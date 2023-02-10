@@ -48,9 +48,9 @@ class TestLinearClassifier(unittest.TestCase):
         rst.seed(42)
         loop = rst.DefaultLoop(
             Model(), SimpleClassificationTask(), optimizer='adadelta',
-            processors=[rst.Logger(), rst.BestSaver()]
+            processors=[rst.Logger(), rst.BestSaver(verbose=0)]
         )
-        self.assertGreater(loop.run(1).val.metrics.acc, 0.8)
+        self.assertGreater(loop.run(1, quiet=True).val.metrics.acc, 0.8)
 
 
 if __name__ == "__main__":
