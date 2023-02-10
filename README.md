@@ -1,4 +1,7 @@
 # `torch.redstone`
+
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/eliphatfs/torch.redstone/build_and_run.yaml) ![PyPI](https://img.shields.io/pypi/v/torch.redstone)
+
 Polyfills, common boilerplates and utilities -- A super light-weight library to boost development with PyTorch.
 
 Works on CPU & GPU, with any version of PyTorch.
