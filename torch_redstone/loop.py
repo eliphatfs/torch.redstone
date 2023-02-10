@@ -95,12 +95,12 @@ class DefaultLoop:
     def add_metric(self, metric: Metric):
         self.metrics.append(metric)
 
-    def run(self, num_epochs, train=True, val=True, max_steps=None):
+    def run(self, num_epochs, train=True, val=True, max_steps=None, quiet=False):
         for epoch in range(num_epochs):
             for prx in self.processors:
                 prx.pre_epoch(self.model, epoch)
-            train_rs = self.epoch(True, epoch, max_steps=max_steps) if train else None
-            val_rs = self.epoch(False, epoch, max_steps=max_steps) if val else None
+            train_rs = self.epoch(True, epoch, max_steps=max_steps, quiet=quiet) if train else None
+            val_rs = self.epoch(False, epoch, max_steps=max_steps, quiet=quiet) if val else None
             epoch_rs = ObjectProxy(train=train_rs, val=val_rs)
             for prx in self.processors:
                 prx.post_epoch(self.model, epoch, epoch_rs)
@@ -113,7 +113,8 @@ class DefaultLoop:
         loader: Optional[DataLoader] = None,
         max_steps: Optional[int] = None,
         return_input: bool = False,
-        return_pred: bool = False
+        return_pred: bool = False,
+        quiet: bool = False
     ) -> ResultInterface:
         self.model.train(training)
         if loader is None:
@@ -122,9 +123,15 @@ class DefaultLoop:
         ref_pt = next(self.model.parameters())
         torch.set_grad_enabled(training)
         if max_steps is not None:
-            prog = tqdm.tqdm(take_first(loader, max_steps), total=max_steps)
+            if quiet:
+                prog = take_first(loader, max_steps)
+            else:
+                prog = tqdm.tqdm(take_first(loader, max_steps), total=max_steps)
         else:
-            prog = tqdm.tqdm(loader)
+            if quiet:
+                prog = loader
+            else:
+                prog = tqdm.tqdm(loader)
         result: ResultInterface = ObjectProxy(metrics=None, inputs=[], preds=[])
         for d in prog:
             if return_input:
@@ -156,7 +163,8 @@ class DefaultLoop:
             desc = "VT"[training] + (" %02d" % epoch if epoch is not None else "")
             for k in sorted(meter.k):
                 desc += " %s: %.4f" % (k, meter[k])
-            prog.set_description(desc)
+            if hasattr(prog, 'set_description'):
+                prog.set_description(desc)
         result.metrics = ObjectProxy(**{k.lower(): meter[k] for k in sorted(meter.k)})
         result.inputs = cat_proxies(result.inputs) if return_input else None
         result.preds = cat_proxies(result.preds) if return_pred else None
