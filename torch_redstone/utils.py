@@ -97,18 +97,28 @@ def container_catamorphism(
     return func(data)
 
 
-def torch_to(data: TC[torch.Tensor], reference: Union[str, torch.device, torch.Tensor]) -> TC[torch.Tensor]:
+def torch_to(data: TC[torch.Tensor], reference: Union[str, torch.device, torch.Tensor], strict=False) -> TC[torch.Tensor]:
     """
     Recursively send `torch.Tensor` in `list`, `dict`, `ObjectProxy`, `tuple`, `set` to `reference`.
+
+    strict: if `True`, unrecognized objects without `.to` function will cause an error.
     """
-    return container_catamorphism(data, lambda x: x.to(reference))
+    if strict:
+        return container_catamorphism(data, lambda x: x.to(reference))
+    else:
+        return container_catamorphism(data, lambda x: x.to(reference) if hasattr(x, 'to') else x)
 
 
-def torch_to_numpy(data: TC[torch.Tensor]) -> TC[numpy.ndarray]:
+def torch_to_numpy(data: TC[torch.Tensor], strict=False) -> TC[numpy.ndarray]:
     """
     Recursively fetch `torch.Tensor` in `list`, `dict`, `ObjectProxy`, `tuple`, `set` as numpy array.
+
+    strict: if `True`, unrecognized objects will cause an error.
     """
-    return container_catamorphism(data, lambda x: x.detach().cpu().numpy())
+    if strict:
+        return container_catamorphism(data, lambda x: x.detach().cpu().numpy())
+    else:
+        return container_catamorphism(data, lambda x: x.detach().cpu().numpy() if hasattr(x, 'detach') else x)
 
 
 def container_pushdown(seq: Sequence[TC], target_cls: Type[TElem] = list) -> TC[TElem]:
