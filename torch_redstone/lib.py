@@ -1,4 +1,4 @@
-from typing import List, Sequence, Union, Callable, Any
+from typing import List, Sequence, Union, Callable, Any, Optional
 from typing_extensions import Literal
 import torch
 import torch.autograd.functional as ad
@@ -113,7 +113,10 @@ def supercat(tensors: Sequence[Tensor], dim: int = 0):
 xcat = supercat
 
 
-def xreshape(tensor: torch.Tensor, shape: Sequence[int], s: int = None, e: int = None, dim: int = None):
+def xreshape(
+    tensor: torch.Tensor, shape: Sequence[int],
+    s: Optional[int] = None, e: Optional[int] = None, dim: Optional[int] = None
+):
     """
     Similar to torch.reshape, but supports reshaping a section (`s`-th dim to `e`-th dim, included) of the shape.
 
