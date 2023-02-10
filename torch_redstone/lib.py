@@ -124,6 +124,7 @@ def xreshape(
     If either s or e is None, the reshape will start from the beginning or go through the end of the shape.
 
     [K, A * B, C] -- xreshape [A, B] dim 1 --> [K, A, B, C]
+
     [K, A * B, C * D] -- xreshape [A, -1, D] s -2 --> [K, A, B * C, D]
     """
     if dim is not None:
