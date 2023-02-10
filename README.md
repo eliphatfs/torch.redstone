@@ -17,4 +17,4 @@ pip install torch.redstone
 ```
 
 ## Documentation
-Please see github wiki.
+The documentation is available at the [github wiki](https://github.com/eliphatfs/torch.redstone/wiki).
