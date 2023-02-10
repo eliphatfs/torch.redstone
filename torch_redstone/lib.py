@@ -98,9 +98,9 @@ class GetItem(nn.Module):
 
 def supercat(tensors: Sequence[Tensor], dim: int = 0):
     """
-    Similar to torch.cat, but supports broadcasting. For example:
+    Similar to `torch.cat`, but supports broadcasting. For example:
 
-    [M, 32], [N, 1, 64] ---supercat 2--> [N, M, 96]
+    [M, 32], [N, 1, 64] -- supercat 2 --> [N, M, 96]
     """
     ndim = max(x.ndim for x in tensors)
     tensors = [x.reshape(*[1] * (ndim - x.ndim), *x.shape) for x in tensors]
@@ -108,6 +108,40 @@ def supercat(tensors: Sequence[Tensor], dim: int = 0):
     shape[dim] = -1
     tensors = [torch.broadcast_to(x, shape) for x in tensors]
     return torch.cat(tensors, dim)
+
+
+xcat = supercat
+
+
+def xreshape(tensor: torch.Tensor, shape: Sequence[int], s: int = None, e: int = None, dim: int = None):
+    """
+    Similar to torch.reshape, but supports reshaping a section (`s`-th dim to `e`-th dim, included) of the shape.
+
+    If dim is set, s and e will be set to dim. An error will be raised if both dim and s or e is set.
+    If either s or e is None, the reshape will start from the beginning or go through the end of the shape.
+
+    [K, A * B, C] -- xreshape [A, B] dim 1 --> [K, A, B, C]
+    [K, A * B, C * D] -- xreshape [A, -1, D] s -2 --> [K, A, B * C, D]
+    """
+    if dim is not None:
+        if s is not None or e is not None:
+            raise ValueError("`dim` and `s` or `e` cannot be set at the same time for `xreshape`")
+        s = e = dim
+    ndim = tensor.ndim
+    if s is None:
+        s = 0
+    if e is None:
+        e = -1
+    if s < 0:
+        s += ndim
+    if e < 0:
+        e += ndim
+    if s > e:
+        raise ValueError("Starting dim `s` cannot be greater than `e`")
+    flat = tensor
+    if s != e:
+        flat = tensor.flatten(s, e)
+    return flat.reshape(*tensor.shape[:s], *shape, *tensor.shape[e + 1:])
 
 
 class MLP(nn.Module):

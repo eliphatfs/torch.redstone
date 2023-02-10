@@ -12,6 +12,7 @@ class TestLib(unittest.TestCase):
         self.assertTrue(torch.allclose(net([a, b]), a))
 
     def test_supercat(self):
+        self.assertEqual(rst.supercat, rst.xcat)
         self.assertSequenceEqual(
             rst.supercat((torch.rand(256, 3), torch.rand(1, 6)), -1).shape,
             [256, 9]
@@ -24,6 +25,18 @@ class TestLib(unittest.TestCase):
             rst.supercat((torch.rand(64, 1), torch.rand(8))).shape,
             [65, 8]
         )
+
+    def test_xreshape_dim(self):
+        a = torch.randn(8, 12, 32)
+        self.assertTrue(torch.allclose(rst.xreshape(a, [3, 4], dim=-2), a.reshape(8, 3, 4, 32)))
+
+    def test_xreshape_s(self):
+        a = torch.randn(8, 15, 3, 32)
+        self.assertTrue(torch.allclose(rst.xreshape(a, [-1], s=1), a.reshape(8, -1)))
+
+    def test_xreshape_e(self):
+        a = torch.randn(8, 12, 32)
+        self.assertTrue(torch.allclose(rst.xreshape(a, [4, -1], e=1), a.reshape(4, 24, 32)))
 
     def test_mlp_shapes(self):
         mlp = rst.MLP([32, 100, 256, 100, 128], 1)
