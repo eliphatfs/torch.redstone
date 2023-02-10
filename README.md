@@ -1,13 +1,17 @@
 # `torch.redstone`
-It exists to reduce boilerplates for training and testing models in PyTorch.
+Polyfills, common boilerplates and utilities -- A super light-weight library to boost development with PyTorch.
+
+Works on CPU & GPU, with any version of PyTorch.
 
 ![Redstone torch](_readme/redstone-torch.jpg)
 
 Disclaimer: The project is neither affiliated with nor endorsed by PyTorch.
 
 ## Installation
-Clone this repository and run:
+`torch.redstone` is a pure python package and can be installed via:
 ```sh
-pip install .
+pip install torch.redstone
 ```
-(pip package is on the way)
+
+## Documentation
+Please see github wiki.
