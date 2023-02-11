@@ -8,7 +8,7 @@ import tqdm
 from .loss import Loss, DefaultLoss
 from .metric import Metric
 from .task import Task
-from .processor import Processor
+from .processor import Processor, Adapter
 from .utils import Meter, torch_to, ObjectProxy, torch_to_numpy, cat_proxies, collate_support_object_proxy
 from .types import EllipsisType, ResultInterface
 from .log import Logger
@@ -29,6 +29,7 @@ class DefaultLoop:
         metrics: Optional[Sequence[Union[Metric, EllipsisType]]] = None,
         processors: Sequence[Processor] = [Logger()],
         optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+        adapter: Adapter = Adapter(), *,
         batch_size=32, num_workers=0
     ) -> None:
         """
@@ -85,6 +86,7 @@ class DefaultLoop:
                 raise ValueError("Unsupported auto-optimizer", optimizer)
         self.optimizer = optimizer
         self.processors = processors
+        self.adapter = adapter
 
     def create_data_loader(self, data: Union[Dataset, list], is_train: bool):
         return DataLoader(
@@ -137,11 +139,12 @@ class DefaultLoop:
             if return_input:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
+            d = self.adapter.transform(d)
             for prx in self.processors:
                 ret = prx.pre_forward(d, self.model)
                 if ret is not None:
                     d = ret
-            output = self.model(d)
+            output = self.adapter.feed(self.model, d)
             for prx in self.processors:
                 ret = prx.post_forward(d, self.model, output)
                 if ret is not None:

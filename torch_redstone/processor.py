@@ -5,6 +5,14 @@ from .utils import ObjectProxy
 from .types import EpochResultInterface
 
 
+class Adapter:
+    def transform(self, inputs):
+        return inputs
+
+    def feed(self, net: nn.Module, inputs):
+        return net(inputs)
+
+
 class Processor:
     def pre_forward(self, inputs, model: nn.Module):
         pass
