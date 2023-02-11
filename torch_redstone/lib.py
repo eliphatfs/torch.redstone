@@ -244,3 +244,9 @@ class CategoricalAcc(nn.Module):
 
     def redstone(self, name: str = 'Acc', pred_path: AttrPathType = 'logits', label_path: AttrPathType = 'y'):
         return TorchMetric(self, name, pred_path, label_path)
+
+
+def _loss_redstone(self, name: str = 'Loss', pred_path: AttrPathType = 'logits', label_path: AttrPathType = 'y'):
+    return TorchMetric(self, name, pred_path, label_path)
+
+torch.nn.modules.loss._Loss.redstone = _loss_redstone
