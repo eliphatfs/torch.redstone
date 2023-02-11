@@ -5,8 +5,13 @@ from .utils import ObjectProxy
 
 
 class Metric:
-    def __init__(self) -> None:
-        self.name = self.__class__.__name__
+    @property
+    def name(self):
+        return getattr(self, '_name', self.__class__.__name__)
+
+    @name.setter
+    def name(self, n):
+        self._name = n
 
     @abstractmethod
     def __call__(self, inputs, model_return) -> torch.Tensor:
