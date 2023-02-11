@@ -36,9 +36,13 @@ class AttrPath:
         )
 
 
-def visit_attr(Q, attr: Union[AttrPath, str, Callable[[Any], torch.Tensor]]):
+def visit_attr(Q, attr: Union[AttrPath, str, Callable[[Any], torch.Tensor], None]):
+    if attr is None:
+        return Q
     if isinstance(attr, str):
-        return getattr(Q, attr)
+        for sec in attr.split('.'):
+            Q = getattr(Q, sec)
+        return Q
     if isinstance(attr, AttrPath):
         return attr.get(Q)
     return attr(Q)
