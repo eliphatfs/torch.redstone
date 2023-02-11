@@ -6,9 +6,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from .processor import Processor
+from .processor import Processor, Adapter
+from .loss import Loss
 from .metric import Metric
-from .utils import container_catamorphism, AttrPath, visit_attr
+from .utils import container_catamorphism, AttrPath, visit_attr, ObjectProxy
+
+
+AttrPathType = Union[AttrPath, str, Callable[[Any], Tensor], None]
 
 
 class Index:
@@ -22,7 +26,7 @@ class Index:
 class AdvTrainingPGD(Processor):
     def __init__(
         self, loss_metric: Metric,
-        no_perturb_attrs: List[Union[AttrPath, str, Callable[[Any], Tensor]]]=[],
+        no_perturb_attrs: List[AttrPathType]=[],
         eps=0.03, step_scale=0.5, n_steps=8
     ) -> None:
         """
@@ -186,3 +190,57 @@ class MLP(nn.Module):
         for layer, norm in zip(self.layers, self.norms):
             x = self.activation(norm(layer(x)))
         return x
+
+
+class DirectPredictionAdapter(Adapter):
+    def transform(self, inputs):
+        x, y = inputs
+        return ObjectProxy(x=x, y=y)
+
+    def feed(self, net: nn.Module, inputs):
+        return ObjectProxy(logits=net(inputs.x))
+
+
+class TorchMetric(Loss, Metric):
+    def __init__(
+        self, torch_module: nn.Module, name = 'Loss',
+        pred_path: AttrPathType = 'logits', label_path: AttrPathType = 'y'
+    ) -> None:
+        super().__init__()
+        self.name = name
+        self.torch_module = torch_module
+        self.pred_path = pred_path
+        self.label_path = label_path
+
+    def __call__(self, inputs, model_return, metrics: ObjectProxy = None) -> torch.Tensor:
+        return self.torch_module(
+            visit_attr(model_return, self.pred_path),
+            visit_attr(inputs, self.label_path)
+        )
+
+
+class BinaryAcc(nn.Module):
+
+    def __init__(self, th_logits = 0.0, th_label = 0.5) -> None:
+        super().__init__()
+        self.th_logits = th_logits
+        self.th_label = th_label
+
+    def forward(self, inputs, targets):
+        return ((inputs > self.th_logits) == (targets > self.th_label)).float().mean()
+
+    def redstone(self, name: str = 'Acc', pred_path: AttrPathType = 'logits', label_path: AttrPathType = 'y'):
+        return TorchMetric(self, name, pred_path, label_path)
+
+
+class CategoricalAcc(nn.Module):
+
+    def __init__(self, dim: int = 1) -> None:
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, inputs, targets):
+        return (inputs.argmax(self.dim) == targets).float().mean()
+
+    def redstone(self, name: str = 'Acc', pred_path: AttrPathType = 'logits', label_path: AttrPathType = 'y'):
+        return TorchMetric(self, name, pred_path, label_path)
