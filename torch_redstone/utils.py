@@ -50,6 +50,18 @@ class ObjectProxy(types.SimpleNamespace):
         setattr(self, name, proxy)
         return proxy
 
+    def __len__(self):
+        return len(self.__dict__)
+
+    def __contains__(self, k):
+        return k in self.__dict__
+
+    def __getitem__(self, k):
+        return self.__dict__[k]
+
+    def __setitem__(self, k, v):
+        self.__dict__[k] = v
+
     @classmethod
     def zip(cls, **kwargs):
         """
