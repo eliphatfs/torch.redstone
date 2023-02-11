@@ -9,7 +9,8 @@ from .loss import Loss, DefaultLoss
 from .metric import Metric
 from .task import Task
 from .processor import Processor, Adapter
-from .utils import Meter, torch_to, ObjectProxy, torch_to_numpy, cat_proxies, collate_support_object_proxy
+from .utils import Meter, ObjectProxy, torch_to, torch_to_numpy
+from .utils import cat_proxies, collate_support_object_proxy, sanitize_name
 from .types import EllipsisType, ResultInterface
 from .log import Logger
 
@@ -152,7 +153,7 @@ class DefaultLoop:
             metvals = ObjectProxy()
             for met in self.metrics:
                 mval = met(d, output)
-                setattr(metvals, met.name.lower(), mval)
+                setattr(metvals, sanitize_name(met.name.lower()), mval)
                 meter.u(met.name, mval.item())
             if training:
                 loss = self.loss(d, output, metvals)
@@ -168,7 +169,7 @@ class DefaultLoop:
                 desc += " %s: %.4f" % (k, meter[k])
             if hasattr(prog, 'set_description'):
                 prog.set_description(desc)
-        result.metrics = ObjectProxy(**{k.lower(): meter[k] for k in sorted(meter.k)})
+        result.metrics = ObjectProxy(**{sanitize_name(k.lower()): meter[k] for k in sorted(meter.k)})
         result.inputs = cat_proxies(result.inputs) if return_input else None
         result.preds = cat_proxies(result.preds) if return_pred else None
         return result
