@@ -1,3 +1,4 @@
+import re
 import collections
 import random
 import types
@@ -41,6 +42,10 @@ def visit_attr(Q, attr: Union[AttrPath, str, Callable[[Any], torch.Tensor]]):
     if isinstance(attr, AttrPath):
         return attr.get(Q)
     return attr(Q)
+
+
+def sanitize_name(name):
+    return re.sub(r'\W|^(?=\d)', '_', name)
 
 
 class ObjectProxy(types.SimpleNamespace):
