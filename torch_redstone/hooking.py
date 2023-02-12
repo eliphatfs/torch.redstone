@@ -1,3 +1,4 @@
+import contextlib
 import torch.nn as nn
 from typing import Optional
 from torch.utils.hooks import RemovableHandle
@@ -74,3 +75,7 @@ def modify_input_to(module: nn.Module, apply_func):
     rc = RedstoneDisposeHandle()
     rc.handle = module.register_forward_pre_hook(lambda mod, inputs: apply_func(*inputs))
     return rc
+
+
+def catching_scope():
+    return contextlib.suppress(StopExecution)
