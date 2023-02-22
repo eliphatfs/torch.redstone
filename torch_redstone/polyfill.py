@@ -34,11 +34,22 @@ class Polyfill:
         return tensor.expand(shape)
 
 
+# Polyfill impls
 if not hasattr(torch, 'square'):
     torch.square = Polyfill.square
-
 if not hasattr(torch, 'broadcast_to'):
     torch.broadcast_to = Polyfill.broadcast_to
-
 if not hasattr(torch, 'cdist'):
     torch.cdist = Polyfill.cdist
+
+# Aliases
+if not hasattr(torch, 'absolute'):
+    torch.absolute = torch.abs
+if not hasattr(torch, 'arccos'):
+    torch.arccos = torch.acos
+if not hasattr(torch, 'arcsin'):
+    torch.arcsin = torch.asin
+if not hasattr(torch, 'arctan'):
+    torch.arctan = torch.atan
+if not hasattr(torch, 'arctan2'):
+    torch.arctan2 = torch.atan2
