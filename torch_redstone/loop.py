@@ -103,6 +103,7 @@ class DefaultLoop:
     def run(self, num_epochs, train=True, val=True, max_steps=None, quiet=False):
         for epoch in range(num_epochs):
             for prx in self.processors:
+                prx._adapter = self.adapter
                 prx.pre_epoch(self.model, epoch)
             train_rs = self.epoch(True, epoch, max_steps=max_steps, quiet=quiet) if train else None
             val_rs = self.epoch(False, epoch, max_steps=max_steps, quiet=quiet) if val else None

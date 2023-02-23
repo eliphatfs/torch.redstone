@@ -14,6 +14,11 @@ class Adapter:
 
 
 class Processor:
+    _adapter: Adapter
+
+    def feed(self, model: nn.Module, inputs):
+        return self._adapter.feed(model, inputs)
+
     def pre_forward(self, inputs, model: nn.Module):
         pass
 

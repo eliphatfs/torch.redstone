@@ -68,7 +68,7 @@ class AdvTrainingPGD(Processor):
         def _wrap_fun(*vals):
             fill = container_catamorphism(indexed, _cata_fill(vals))
             loss_inputs = container_catamorphism(inputs, _cata_detach)
-            return self.loss(loss_inputs, model(fill))
+            return self.loss(loss_inputs, self.feed(model, fill))
 
         indexed = container_catamorphism(inputs, _cata_indexing)
 
