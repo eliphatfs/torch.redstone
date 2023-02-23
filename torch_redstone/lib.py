@@ -50,7 +50,7 @@ class AdvTrainingPGD(Processor):
             skip.append(visit_attr(inputs, skip_attr))
 
         def _cata_indexing(tnsr):
-            if isinstance(tnsr, Tensor):
+            if isinstance(tnsr, Tensor) and torch.is_floating_point(tnsr):
                 if any(x is tnsr for x in skip):
                     return tnsr
                 collect.append(tnsr)
