@@ -27,7 +27,7 @@ class AdvTrainingPGD(Processor):
     def __init__(
         self, loss_metric: Metric,
         no_perturb_attrs: List[AttrPathType]=[],
-        eps=0.03, step_scale=0.5, n_steps=8
+        eps=0.03, step_scale=0.5, n_steps=8, attack_at_test=False
     ) -> None:
         """
         Processor for L_inf PGD adversarial (robust) training.
@@ -38,9 +38,10 @@ class AdvTrainingPGD(Processor):
         self.eps = eps
         self.step = eps * step_scale
         self.skipped = no_perturb_attrs
+        self.attack_at_test = attack_at_test
 
     def pre_forward(self, inputs, model: nn.Module):
-        if not model.training:
+        if not self.attack_at_test and not model.training:
             return
         skip = []
         collect = []
