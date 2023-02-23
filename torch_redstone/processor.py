@@ -1,7 +1,7 @@
+import torch
 import torch.nn as nn
 import torch.optim
 
-from .utils import ObjectProxy
 from .types import EpochResultInterface
 
 
@@ -14,6 +14,7 @@ class Adapter:
 
 
 class Processor:
+    gscaler: torch.cuda.amp.GradScaler
     _adapter: Adapter
 
     def feed(self, model: nn.Module, inputs):

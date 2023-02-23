@@ -21,6 +21,17 @@ def take_first(iterable, n):
         yield next(iterator)
 
 
+class AMPLoss(Loss):
+    def __init__(self, gscaler: torch.cuda.amp.GradScaler, original_loss: Loss) -> None:
+        super().__init__()
+        self.original_loss = original_loss
+        self.gscaler = gscaler
+
+    def __call__(self, inputs, model_return, metrics: ObjectProxy) -> torch.Tensor:
+        loss = self.original_loss(inputs, model_return, metrics)
+        return self.gscaler.scale(loss).reshape_as(loss)
+
+
 class DefaultLoop:
     def __init__(
         self,
@@ -31,7 +42,7 @@ class DefaultLoop:
         processors: Sequence[Processor] = None,
         optimizer: Union[str, torch.optim.Optimizer] = 'adam',
         adapter: Adapter = Adapter(), *,
-        batch_size=32, num_workers=0
+        batch_size=32, num_workers=0, amp=False
     ) -> None:
         """
         Construct the default training loop.
@@ -90,6 +101,10 @@ class DefaultLoop:
             processors = [Logger()]
         self.processors = processors
         self.adapter = adapter
+        self.amp = amp
+        self.gscaler = torch.cuda.amp.GradScaler(enabled=amp)
+        if amp:
+            self.loss = AMPLoss(self.gscaler, self.loss)
 
     def create_data_loader(self, data: Union[Dataset, list], is_train: bool):
         return DataLoader(
@@ -103,6 +118,7 @@ class DefaultLoop:
     def run(self, num_epochs, train=True, val=True, max_steps=None, quiet=False):
         for epoch in range(num_epochs):
             for prx in self.processors:
+                prx.gscaler = self.gscaler
                 prx._adapter = self.adapter
                 prx.pre_epoch(self.model, epoch)
             train_rs = self.epoch(True, epoch, max_steps=max_steps, quiet=quiet) if train else None
@@ -144,27 +160,30 @@ class DefaultLoop:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
             d = self.adapter.transform(d)
-            for prx in self.processors:
-                ret = prx.pre_forward(d, self.model)
-                if ret is not None:
-                    d = ret
-            output = self.adapter.feed(self.model, d)
-            for prx in self.processors:
-                ret = prx.post_forward(d, self.model, output)
-                if ret is not None:
-                    output = ret
-            metvals = ObjectProxy()
-            for met in self.metrics:
-                mval = met(d, output)
-                setattr(metvals, sanitize_name(met.name.lower()), mval)
-                meter.u(met.name, mval.item())
+            with torch.autocast(ref_pt.device.type, enabled=self.amp):
+                for prx in self.processors:
+                    ret = prx.pre_forward(d, self.model)
+                    if ret is not None:
+                        d = ret
+                output = self.adapter.feed(self.model, d)
+                for prx in self.processors:
+                    ret = prx.post_forward(d, self.model, output)
+                    if ret is not None:
+                        output = ret
+                metvals = ObjectProxy()
+                for met in self.metrics:
+                    mval = met(d, output)
+                    setattr(metvals, sanitize_name(met.name.lower()), mval)
+                    meter.u(met.name, mval.item())
+                if training:
+                    loss = self.loss(d, output, metvals)
             if training:
-                loss = self.loss(d, output, metvals)
-                self.optimizer.zero_grad()
                 loss.backward()
-                self.optimizer.step()
+                self.gscaler.step(self.optimizer)
+                self.gscaler.update()
                 for prx in self.processors:
                     prx.post_step(self.model, self.optimizer, metvals)
+                self.optimizer.zero_grad()
             if return_pred:
                 result.preds.append(torch_to_numpy(output))
             desc = "VT"[training] + (" %02d" % epoch if epoch is not None else "")
