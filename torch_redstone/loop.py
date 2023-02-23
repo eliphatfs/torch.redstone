@@ -28,7 +28,7 @@ class DefaultLoop:
         task: Task,
         loss: Optional[Loss] = None,
         metrics: Optional[Sequence[Union[Metric, EllipsisType]]] = None,
-        processors: Sequence[Processor] = [Logger()],
+        processors: Sequence[Processor] = None,
         optimizer: Union[str, torch.optim.Optimizer] = 'adam',
         adapter: Adapter = Adapter(), *,
         batch_size=32, num_workers=0
@@ -86,6 +86,8 @@ class DefaultLoop:
             else:
                 raise ValueError("Unsupported auto-optimizer", optimizer)
         self.optimizer = optimizer
+        if processors is None:
+            processors = [Logger()]
         self.processors = processors
         self.adapter = adapter
 
