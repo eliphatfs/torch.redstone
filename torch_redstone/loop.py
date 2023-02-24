@@ -41,7 +41,9 @@ class DefaultLoop:
         metrics: Optional[Sequence[Union[Metric, EllipsisType]]] = None,
         processors: Sequence[Processor] = None,
         optimizer: Union[str, torch.optim.Optimizer] = 'adam',
-        adapter: Adapter = Adapter(), *,
+        adapter: Adapter = Adapter(),
+        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        *,
         batch_size=32, num_workers=0, amp=False
     ) -> None:
         """
@@ -94,13 +96,16 @@ class DefaultLoop:
                 optimizer = torch.optim.RMSprop(model.parameters())
             elif optimizer == 'adadelta':
                 optimizer = torch.optim.Adadelta(model.parameters())
+            elif optimizer == 'sgd':
+                optimizer = torch.optim.SGD(model.parameters(), 0.01, 0.9, nesterov=True)
             else:
-                raise ValueError("Unsupported auto-optimizer", optimizer)
+                raise ValueError("Unsupported optimizer", optimizer)
         self.optimizer = optimizer
         if processors is None:
             processors = [Logger()]
         self.processors = processors
         self.adapter = adapter
+        self.scheduler = scheduler
         self.amp = amp
         self.gscaler = torch.cuda.amp.GradScaler(enabled=amp)
         if amp:
@@ -124,6 +129,8 @@ class DefaultLoop:
             train_rs = self.epoch(True, epoch, max_steps=max_steps, quiet=quiet) if train else None
             val_rs = self.epoch(False, epoch, max_steps=max_steps, quiet=quiet) if val else None
             epoch_rs = ObjectProxy(train=train_rs, val=val_rs)
+            if self.scheduler is not None:
+                self.scheduler.step()
             for prx in self.processors:
                 prx.post_epoch(self.model, epoch, epoch_rs)
         return epoch_rs
