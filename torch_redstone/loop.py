@@ -1,4 +1,4 @@
-from typing import List, Sequence, Optional, Union
+from typing import List, Sequence, Optional, Union, Literal
 import torch
 import torch.optim
 import torch.nn
@@ -43,6 +43,7 @@ class DefaultLoop:
         optimizer: Union[str, torch.optim.Optimizer] = 'adam',
         adapter: Adapter = Adapter(),
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        scheduler_base: Literal['epoch', 'step'] = 'step',
         *,
         batch_size=32, num_workers=0, amp=False
     ) -> None:
@@ -106,6 +107,7 @@ class DefaultLoop:
         self.processors = processors
         self.adapter = adapter
         self.scheduler = scheduler
+        self.scheduler_base = scheduler_base
         self.amp = amp
         self.gscaler = torch.cuda.amp.GradScaler(enabled=amp)
         if amp:
@@ -129,7 +131,7 @@ class DefaultLoop:
             train_rs = self.epoch(True, epoch, max_steps=max_steps, quiet=quiet) if train else None
             val_rs = self.epoch(False, epoch, max_steps=max_steps, quiet=quiet) if val else None
             epoch_rs = ObjectProxy(train=train_rs, val=val_rs)
-            if self.scheduler is not None:
+            if self.scheduler is not None and self.scheduler_base == "epoch":
                 self.scheduler.step()
             for prx in self.processors:
                 prx.post_epoch(self.model, epoch, epoch_rs)
@@ -188,6 +190,8 @@ class DefaultLoop:
                 loss.backward()
                 self.gscaler.step(self.optimizer)
                 self.gscaler.update()
+                if self.scheduler is not None and self.scheduler_base == "step":
+                    self.scheduler.step()
                 for prx in self.processors:
                     prx.post_step(self.model, self.optimizer, metvals)
                 self.optimizer.zero_grad()
