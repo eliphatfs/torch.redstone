@@ -1,4 +1,5 @@
-from typing import List, Sequence, Optional, Union, Literal
+from typing import List, Sequence, Optional, Union
+from typing_extensions import Literal
 import torch
 import torch.optim
 import torch.nn
