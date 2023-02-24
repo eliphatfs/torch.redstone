@@ -4,7 +4,7 @@ from typing import List, Type, Union
 import torch
 
 from .metric import Metric
-from .utils import AttrPath
+from .utils import AttrPath, visit_attr
 from .types import EpochResultInterface
 from .processor import Processor
 
@@ -79,7 +79,7 @@ class BestSaver(Processor):
             elif epoch_result.train:
                 met = getattr(epoch_result.val.metrics, self.metric_attr)
         else:
-            met = self.metric_attr.get(epoch_result)
+            met = visit_attr(epoch_result, self.metric_attr)
         if self.lower_better:
             if met < self.best:
                 self.best = met
