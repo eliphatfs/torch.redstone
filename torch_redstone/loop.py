@@ -64,7 +64,7 @@ class DefaultLoop:
 
         Notes on `optimizer`:
             It may be `torch.optim.Optimizer` instance or name of optimizer.
-            Supported names are adaptive optimizers: `adam`, `adadelta` and `rmsprop`.
+            Supported names are adaptive optimizers: `adam`, `adadelta`, `sgd` and `rmsprop`.
 
         Notes on data loaders:
             `batch_size` and `num_workers` are ignored if the task generates DataLoaders already.
