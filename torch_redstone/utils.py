@@ -194,16 +194,3 @@ def seed(seed: int):
     torch.manual_seed(seed)
     numpy.random.seed(seed)
     random.seed(seed)
-
-
-def uautocast(device_type=None, enabled=True):
-    """
-    Replacement for `torch.autocast`. Unified API between different torch versions.
-    """
-    spec = inspect.signature(torch.autocast.__init__)
-    if device_type is None:
-        device_type = 'cuda'
-    if 'device_type' in spec.parameters:
-        return torch.autocast(device_type=device_type, enabled=enabled)
-    else:
-        return torch.autocast(enabled=enabled)

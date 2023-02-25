@@ -33,6 +33,10 @@ class Polyfill:
     def broadcast_to(tensor: torch.Tensor, shape):
         return tensor.expand(shape)
 
+    @staticmethod
+    def autocast_cuda_only(device_type: str, enabled: bool = True):
+        return torch.cuda.amp.autocast(enabled=enabled)
+
 
 # Polyfill impls
 if not hasattr(torch, 'square'):
@@ -41,6 +45,8 @@ if not hasattr(torch, 'broadcast_to'):
     torch.broadcast_to = Polyfill.broadcast_to
 if not hasattr(torch, 'cdist'):
     torch.cdist = Polyfill.cdist
+if not hasattr(torch, 'autocast'):
+    torch.autocast = Polyfill.autocast_cuda_only
 
 # Aliases
 if not hasattr(torch, 'absolute'):
