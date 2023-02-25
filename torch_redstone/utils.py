@@ -1,11 +1,12 @@
 import re
-import collections
-import random
 import types
-from typing import Any, Callable, Sequence, Type, Union
 import typing
+import random
+import inspect
+import collections
 import numpy
 import torch
+from typing import Any, Callable, Sequence, Type, Union
 from torch.utils.data.dataloader import default_collate
 
 
@@ -193,3 +194,16 @@ def seed(seed: int):
     torch.manual_seed(seed)
     numpy.random.seed(seed)
     random.seed(seed)
+
+
+def uautocast(device_type=None, enabled=True):
+    """
+    Replacement for `torch.autocast`. Unified API between different torch versions.
+    """
+    spec = inspect.signature(torch.autocast.__init__)
+    if device_type is None:
+        device_type = 'cuda'
+    if 'device_type' in spec.parameters:
+        return torch.autocast(device_type=device_type, enabled=enabled)
+    else:
+        return torch.autocast(enabled=enabled)

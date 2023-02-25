@@ -11,7 +11,7 @@ from .metric import Metric
 from .task import Task
 from .processor import Processor, Adapter
 from .utils import Meter, ObjectProxy, torch_to, torch_to_numpy
-from .utils import cat_proxies, collate_support_object_proxy, sanitize_name
+from .utils import cat_proxies, collate_support_object_proxy, sanitize_name, uautocast
 from .types import EllipsisType, ResultInterface
 from .log import Logger
 
@@ -170,7 +170,7 @@ class DefaultLoop:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
             d = self.adapter.transform(d)
-            with torch.autocast(ref_pt.device.type, enabled=self.amp):
+            with uautocast(ref_pt.device.type, enabled=self.amp):
                 for prx in self.processors:
                     ret = prx.pre_forward(d, self.model)
                     if ret is not None:
