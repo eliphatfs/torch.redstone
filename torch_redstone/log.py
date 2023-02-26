@@ -77,7 +77,7 @@ class BestSaver(Processor):
             if epoch_result.val:
                 met = getattr(epoch_result.val.metrics, self.metric_attr)
             elif epoch_result.train:
-                met = getattr(epoch_result.val.metrics, self.metric_attr)
+                met = getattr(epoch_result.train.metrics, self.metric_attr)
         else:
             met = visit_attr(epoch_result, self.metric_attr)
         if self.lower_better:
