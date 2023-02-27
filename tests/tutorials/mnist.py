@@ -21,9 +21,11 @@ def main(epochs=10):
     model = torchvision.models.resnet18(num_classes=10)
     if torch.cuda.is_available():
         model = model.cuda()
+    saver = rst.LatestSaver('test/model_{epoch:04}', lambda x: x % 2 == 1)
     rst.DefaultLoop(
         model, MNISTTask(), optimizer='adam',
         adapter=rst.DirectPredictionAdapter(),
+        processors=[saver],
         batch_size=256
     ).run(epochs)
 

@@ -111,8 +111,8 @@ class LatestSaver(BestSaver):
         """
         super().__init__(lambda _: time.time(), "", directory, verbose=0)
         self.epoch = 0
-        self.get_file_path()  # check fmt validity
         self.fmt = fmt
+        self.get_file_path()  # check fmt validity
         cond(0)  # check cond validity
         self.cond = cond
 
@@ -122,4 +122,7 @@ class LatestSaver(BestSaver):
             return super().post_epoch(model, epoch, epoch_result)
 
     def get_file_path(self):
-        return self.fmt.format(epoch=self.epoch, start_time=module_load_time)
+        file = self.fmt.format(epoch=self.epoch, start_time=module_load_time)
+        dirpath = os.path.dirname(os.path.join(self.path, file))
+        os.makedirs(dirpath, exist_ok=True)
+        return os.path.join(self.path, file)
