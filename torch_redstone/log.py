@@ -97,3 +97,29 @@ class BestSaver(Processor):
 class BestLossSaver(BestSaver):
     def __init__(self, model_name: str = "model", directory: str = "./logs/") -> None:
         super().__init__("loss", model_name, directory, lower_better=True)
+
+
+class LatestSaver(BestSaver):
+    def __init__(self, fmt: str = "model_{start_time}", cond = lambda epoch: True, directory: str = "./logs/") -> None:
+        """
+        Save latest checkpoints, with optional `cond` of checking according to epoch number (starting `0`).
+
+        Return `False` in `cond(epoch)` to skip a save.
+
+        `fmt` can have parameters `{start_time}` and `{epoch}`.
+        Supports python formatting: `{epoch:04}`
+        """
+        super().__init__(lambda _: time.time(), "", directory, verbose=0)
+        self.epoch = 0
+        self.get_file_path()  # check fmt validity
+        self.fmt = fmt
+        cond(0)  # check cond validity
+        self.cond = cond
+
+    def post_epoch(self, model, epoch, epoch_result: EpochResultInterface):
+        self.epoch = epoch
+        if self.cond(epoch):
+            return super().post_epoch(model, epoch, epoch_result)
+
+    def get_file_path(self):
+        return self.fmt.format(epoch=self.epoch, start_time=module_load_time)
