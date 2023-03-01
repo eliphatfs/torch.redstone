@@ -1,8 +1,6 @@
 from abc import abstractmethod
 import torch
 
-from .utils import ObjectProxy
-
 
 class Metric:
     @property
