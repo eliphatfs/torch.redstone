@@ -114,10 +114,10 @@ class DefaultLoop:
         if amp:
             self.loss = AMPLoss(self.gscaler, self.loss)
 
-    def create_data_loader(self, data: Union[Dataset, list], is_train: bool):
+    def create_data_loader(self, data: Union[Dataset, list], is_train: bool, **kwargs):
         return DataLoader(
             data, self.batch_size, is_train, num_workers=self.num_workers,
-            collate_fn=collate_support_object_proxy
+            collate_fn=collate_support_object_proxy, **kwargs
         )
 
     def add_metric(self, metric: Metric):
