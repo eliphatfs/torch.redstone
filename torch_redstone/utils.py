@@ -1,4 +1,5 @@
 import re
+import math
 import types
 import typing
 import random
@@ -196,3 +197,11 @@ def seed(seed: int):
     torch.manual_seed(seed)
     numpy.random.seed(seed)
     random.seed(seed)
+
+
+def log1m_exp(arr_x):
+    oob = arr_x < math.log(torch.finfo(arr_x.dtype).smallest_normal)
+    mask = arr_x > -0.6931472  # appox -log(2)
+    more_val = torch.log(-torch.expm1(arr_x))
+    less_val = torch.log1p(-torch.exp(arr_x))
+    return torch.where(oob, 0., torch.where(mask, more_val, less_val))
