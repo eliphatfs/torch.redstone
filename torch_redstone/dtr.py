@@ -1,20 +1,23 @@
 import time
+import tqdm
 import torch
-import torch.overrides
 from itertools import chain
 from functools import partial
 from types import SimpleNamespace
 from typing import Union, Optional
 from collections import defaultdict
-from torch.utils._python_dispatch import TorchDispatchMode
-from torch.utils._pytree import tree_map
 
 
-overridable = set(torch.overrides.get_overridable_functions()[torch])
 memory_cap = {}
 
 memory_headroom = 1024
 all_evictable = defaultdict(set)
+DEBUG = False
+
+
+def dtr_debug_print(*args, **kwargs):
+    if DEBUG:
+        print(*args, **kwargs)
 
 
 def unify_device(device: Union[None, int, torch.device] = None):
@@ -41,31 +44,25 @@ def set_memory_cap(device: Union[None, int, torch.device] = None, megabytes: int
         memory_cap[device] = int(megabytes)
 
 
-class DTRDispatcher(TorchDispatchMode):
-    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
-        print(func, types, args)
-        def unwrap_proxy(t):
-            if isinstance(t, WrapperTensor):
-                return t.dtr
-            else:
-                return t
-        args = tree_map(unwrap_proxy, args)
-        kwargs = tree_map(unwrap_proxy, kwargs)
-        return WrapperTensor(torch.empty(0), dtr=DynamicRematerializedTensor(func, types, args, kwargs))
-
-
-class WrapperTensor(torch.Tensor):
+class DynamicRematerializedTensor(torch.Tensor):
     @staticmethod
-    def __new__(cls, elem, dtr):
-        return super().__new__(cls, elem)
+    def __new__(cls, elem, op, types, args, kwargs: Optional[dict]):
+        return torch.Tensor._make_wrapper_subclass(
+            cls,
+            elem.size(),
+            strides=elem.stride(),
+            storage_offset=elem.storage_offset(),
+            dtype=elem.dtype,
+            layout=elem.layout,
+            requires_grad=elem.requires_grad,
+            device=elem.device,
+        )
 
-    def __init__(self, elem, dtr):
-        self.dtr = dtr
+    @staticmethod
+    def from_tensor(elem):
+        return DynamicRematerializedTensor(elem, None, (), (), None)
 
-
-class DynamicRematerializedTensor:
-
-    def __init__(self, op, types, args, kwargs: Optional[dict]) -> None:
+    def __init__(self, elem, op, types, args, kwargs: Optional[dict]) -> None:
         super().__init__()
         self.op = op
         self.types = types
@@ -75,12 +72,15 @@ class DynamicRematerializedTensor:
         self.kwargs = kwargs
 
         self.neighbours = []
-        self.stats = SimpleNamespace()
+        self.stats = SimpleNamespace(cost=0, mem=elem.element_size() * elem.nelement() / 1048576)
         self.pinned = 0
-        self.v = None
-        self.evicted = True
-        self.pin()
-        self.unpin()
+        self.v = elem
+        self.evicted = False
+
+        all_evictable[unify_device(self.v.device)].add(self)
+        self.record_use()
+        if op is None:
+            self.pin()
 
         for arg in chain(self.args, self.kwargs.values()):
             if isinstance(arg, DynamicRematerializedTensor):
@@ -97,6 +97,8 @@ class DynamicRematerializedTensor:
         self.pinned += 1
         if self.evicted:
             self.rematerialize()
+        if self.pinned == 1 and not self.evicted:
+            all_evictable[unify_device(self.v.device)].remove(self)
         self.record_use()
 
     def record_use(self):
@@ -104,46 +106,15 @@ class DynamicRematerializedTensor:
 
     def unpin(self):
         self.pinned -= 1
+        if self.pinned == 0 and not self.evicted:
+            all_evictable[unify_device(self.v.device)].add(self)
         assert self.pinned >= 0
 
     def rematerialize(self):
-        device = torch.cuda.current_device()
-        for arg in chain(self.args, self.kwargs.values()):
-            if isinstance(arg, DynamicRematerializedTensor):
-                arg.pin()
-            if isinstance(arg, (torch.Tensor, DynamicRematerializedTensor)):
-                device = arg.device
-        device = unify_device(device)
-        cvt_types = []
-        cvt_args = []
-        cvt_kwargs = {}
-        for arg in self.args:
-            if isinstance(arg, DynamicRematerializedTensor):
-                cvt_args.append(arg.v)
-                cvt_types.append(type(arg.v))
-            else:
-                cvt_args.append(arg)
-                cvt_types.append(type(arg))
-        for k, arg in self.kwargs.items():
-            if isinstance(arg, DynamicRematerializedTensor):
-                cvt_kwargs[k] = arg.v
-            else:
-                cvt_kwargs[k] = arg
-        while torch.cuda.memory_allocated(device) / 1024 / 1024 + memory_headroom > get_memory_cap(device):
-            to_evict: DynamicRematerializedTensor = min(
-                all_evictable[device],
-                key=partial(DynamicRematerializedTensor.h_dtr, current_time=time.process_time() + 1e-8)
-            )
-            to_evict.evict()
-        t = time.perf_counter()
-        self.v = self.op(*cvt_args, **cvt_kwargs)
-        self.stats.cost = time.perf_counter() - t
-        self.stats.mem = self.v.element_size() * self.v.nelement() / 1024 / 1024
+        self.v = self.do_compute(self.op, self.types, self.args, self.kwargs)
         self.evicted = False
-        for arg in chain(self.args, self.kwargs.values()):
-            if isinstance(arg, DynamicRematerializedTensor):
-                arg.unpin()
         all_evictable[unify_device(self.v.device)].add(self)
+        dtr_debug_print("[rematerialize]", id(self))
 
     def h_dtr(self, current_time):
         if self.pinned > 0:
@@ -159,18 +130,73 @@ class DynamicRematerializedTensor:
         else:
             return f"DTREvictable(v={self.v})"
 
+    @classmethod
+    def do_compute(cls, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        device = torch.cuda.current_device()
+        for arg in chain(args, kwargs.values()):
+            if isinstance(arg, DynamicRematerializedTensor):
+                arg.pin()
+                device = arg.v.device
+            elif isinstance(arg, torch.Tensor):
+                device = arg.device
+        device = unify_device(device)
+        # cvt_types = []
+        cvt_args = []
+        cvt_kwargs = {}
+        for arg in args:
+            if isinstance(arg, DynamicRematerializedTensor):
+                cvt_args.append(arg.v)
+                # cvt_types.append(type(arg.v))
+            else:
+                cvt_args.append(arg)
+                # cvt_types.append(type(arg))
+        for k, arg in kwargs.items():
+            if isinstance(arg, DynamicRematerializedTensor):
+                cvt_kwargs[k] = arg.v
+            else:
+                cvt_kwargs[k] = arg
+        while torch.cuda.memory_allocated(device) / 1048576 + memory_headroom > get_memory_cap(device):
+            # dtr_debug_print("[targets]", device, [*map(id, all_evictable[device])])
+            to_evict: DynamicRematerializedTensor = min(
+                all_evictable[device],
+                key=partial(DynamicRematerializedTensor.h_dtr, current_time=time.process_time() + 1e-8)
+            )
+            # dtr_debug_print("[evicting]", id(to_evict), torch.cuda.memory_allocated(device) / 1048576)
+            to_evict.evict()
+            dtr_debug_print("[evicted]", id(to_evict), torch.cuda.memory_allocated(device) / 1048576)
+        v = func(*cvt_args, **cvt_kwargs)
+        for arg in chain(args, kwargs.values()):
+            if isinstance(arg, DynamicRematerializedTensor):
+                arg.unpin()
+        return v
 
-net = torch.nn.Sequential(*[
-    torch.nn.Sequential(
-        torch.nn.Linear(1024, 1024),
-        torch.nn.ReLU(),
-    ) for _ in range(16)
-]).cuda()
-# for ch in net.modules():
-#     for k, p in ch.named_parameters(recurse=False):
-#         setattr(ch, k, p.data)
-set_memory_cap(0, 5120)
-with DTRDispatcher.push():
-    net(torch.randn(100000, 1024).cuda()).sum().backward()
-print(torch.cuda.max_memory_allocated(), torch.cuda.max_memory_cached())
-pass
+    @classmethod
+    def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
+        t = time.perf_counter()
+        v = cls.do_compute(func, types, args, kwargs)
+        dtr = DynamicRematerializedTensor(
+            v, func, types, args, kwargs
+        )
+        dtr.stats.cost = time.perf_counter() - t
+        dtr.stats.mem = v.element_size() * v.nelement() / 1024 / 1024
+        dtr_debug_print(func, types, '->', id(dtr))
+        return dtr
+
+
+# torch.manual_seed(0)
+# net = torch.nn.Sequential(*[
+#     torch.nn.Sequential(
+#         torch.nn.Linear(1024, 1024),
+#         torch.nn.ReLU(),
+#     ) for _ in range(16)
+# ]).cuda()
+# opt = torch.optim.SGD(net.parameters(), 0.01)
+# set_memory_cap(0, 5120)
+# for i in tqdm.trange(32):
+#     net(DynamicRematerializedTensor.from_tensor(torch.randn(100000, 1024).cuda())).sum().backward()
+#     opt.step()
+#     opt.zero_grad(True)
+# # print(net[0][0].weight.grad)
+# print(torch.cuda.max_memory_allocated(), torch.cuda.max_memory_reserved())
