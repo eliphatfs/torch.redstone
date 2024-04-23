@@ -26,6 +26,9 @@ class Processor:
     def post_forward(self, inputs, model: nn.Module, model_return):
         pass
 
+    def pre_step(self, model: nn.Module, optimizer: torch.optim.Optimizer, metrics):
+        pass
+
     def post_step(self, model: nn.Module, optimizer: torch.optim.Optimizer, metrics):
         pass
 
