@@ -5,6 +5,7 @@ import torch.autograd.functional as ad
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch.optim.optimizer import Optimizer
 
 from .processor import Processor, Adapter
 from .loss import Loss
@@ -192,6 +193,22 @@ class MLP(nn.Module):
         for layer, norm in zip(self.layers, self.norms):
             x = self.activation(norm(layer(x)))
         return x
+
+
+class GradientNormOperator(Processor):
+
+    def __init__(self, clip_norm: float, reject_norm: float) -> None:
+        super().__init__()
+        self.clip_norm = clip_norm
+        self.reject_norm = reject_norm
+
+    def pre_step(self, model: nn.Module, optimizer: Optimizer, metrics):
+        total_grad_norm = torch.nn.utils.clip_grad_norm_(
+            model.parameters(), max_norm=self.clip_norm
+        )
+        metrics.grad_norm = total_grad_norm
+        if total_grad_norm > self.reject_norm:
+            return True
 
 
 class DirectPredictionAdapter(Adapter):
