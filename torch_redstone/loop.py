@@ -109,9 +109,11 @@ class DefaultLoop:
         self.adapter = adapter
         self.scheduler = scheduler
         self.scheduler_base = scheduler_base
+        if amp is True:
+            amp = torch.float16
         self.amp = amp
-        self.gscaler = torch.cuda.amp.GradScaler(enabled=amp)
-        if amp:
+        self.gscaler = torch.cuda.amp.GradScaler(enabled=amp == torch.float16)
+        if amp == torch.float16:
             self.loss = AMPLoss(self.gscaler, self.loss)
 
     def create_data_loader(self, data: Union[Dataset, list], is_train: bool, **kwargs):
@@ -170,7 +172,7 @@ class DefaultLoop:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
             d = self.adapter.transform(d)
-            with torch.autocast(ref_pt.device.type, enabled=self.amp):
+            with torch.autocast(ref_pt.device.type, enabled=bool(self.amp), dtype=self.amp if self.amp else None):
                 for prx in self.processors:
                     ret = prx.pre_forward(d, self.model)
                     if ret is not None:
