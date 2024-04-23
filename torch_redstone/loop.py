@@ -172,7 +172,7 @@ class DefaultLoop:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
             d = self.adapter.transform(d)
-            with torch.autocast(ref_pt.device.type, enabled=bool(self.amp), dtype=self.amp if self.amp else None):
+            with torch.autocast(ref_pt.device.type, enabled=bool(self.amp), dtype=self.amp or torch.float16):
                 for prx in self.processors:
                     ret = prx.pre_forward(d, self.model)
                     if ret is not None:
