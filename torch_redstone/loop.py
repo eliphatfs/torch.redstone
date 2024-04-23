@@ -172,7 +172,11 @@ class DefaultLoop:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
             d = self.adapter.transform(d)
-            with torch.autocast(ref_pt.device.type, enabled=bool(self.amp), dtype=self.amp or torch.float16):
+            if self.amp:
+                ac = torch.autocast(ref_pt.device.type, enabled=bool(self.amp), dtype=self.amp)
+            else:
+                ac = torch.autocast(ref_pt.device.type, enabled=False)
+            with ac:
                 for prx in self.processors:
                     ret = prx.pre_forward(d, self.model)
                     if ret is not None:
@@ -191,10 +195,14 @@ class DefaultLoop:
                     loss = self.loss(d, output, metvals)
             if training:
                 loss.backward()
-                self.gscaler.step(self.optimizer)
-                self.gscaler.update()
-                if self.scheduler is not None and self.scheduler_base == "step":
-                    self.scheduler.step()
+                skip = False
+                for prx in self.processors:
+                    skip = skip or prx.pre_step(self.model, self.optimizer, metvals)
+                if not skip:
+                    self.gscaler.step(self.optimizer)
+                    self.gscaler.update()
+                    if self.scheduler is not None and self.scheduler_base == "step":
+                        self.scheduler.step()
                 for prx in self.processors:
                     prx.post_step(self.model, self.optimizer, metvals)
                 self.optimizer.zero_grad()
