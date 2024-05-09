@@ -4,6 +4,7 @@ import torch
 import torch.optim
 import torch.nn
 from torch.utils.data import DataLoader, Dataset
+from contextlib import nullcontext
 import tqdm
 
 from .loss import Loss, DefaultLoss
@@ -46,7 +47,7 @@ class DefaultLoop:
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         scheduler_base: Literal['epoch', 'step'] = 'step',
         *,
-        batch_size=32, num_workers=0, amp=False
+        batch_size=32, num_workers=0, accumulation=1, amp=False
     ) -> None:
         """
         Construct the default training loop.
@@ -113,6 +114,7 @@ class DefaultLoop:
             amp = torch.float16
         self.amp = amp
         self.gscaler = torch.cuda.amp.GradScaler(enabled=amp == torch.float16)
+        self.accumulation = accumulation
         if amp == torch.float16:
             self.loss = AMPLoss(self.gscaler, self.loss)
 
@@ -167,7 +169,7 @@ class DefaultLoop:
             else:
                 prog = tqdm.tqdm(loader)
         result: ResultInterface = ObjectProxy(metrics=None, inputs=[], preds=[])
-        for d in prog:
+        for i, d in enumerate(prog):
             if return_input:
                 result.inputs.append(torch_to_numpy(d))
             d = torch_to(d, ref_pt.device)
@@ -176,36 +178,43 @@ class DefaultLoop:
                 ac = torch.autocast(ref_pt.device.type, enabled=bool(self.amp), dtype=self.amp)
             else:
                 ac = torch.autocast(ref_pt.device.type, enabled=False)
-            with ac:
-                for prx in self.processors:
-                    ret = prx.pre_forward(d, self.model)
-                    if ret is not None:
-                        d = ret
-                output = self.adapter.feed(self.model, d)
-                for prx in self.processors:
-                    ret = prx.post_forward(d, self.model, output)
-                    if ret is not None:
-                        output = ret
-                metvals = ObjectProxy()
-                for met in self.metrics:
-                    mval = met(d, output)
-                    setattr(metvals, sanitize_name(met.name.lower()), mval)
-                    meter.u(met.name, mval.item())
+
+            if training and isinstance(self.model, torch.nn.parallel.DistributedDataParallel) and i % self.accumulation != self.accumulation - 1:
+                nosync = self.model.no_sync()
+            else:
+                nosync = nullcontext()
+            with nosync:
+                with ac:
+                    for prx in self.processors:
+                        ret = prx.pre_forward(d, self.model)
+                        if ret is not None:
+                            d = ret
+                    output = self.adapter.feed(self.model, d)
+                    for prx in self.processors:
+                        ret = prx.post_forward(d, self.model, output)
+                        if ret is not None:
+                            output = ret
+                    metvals = ObjectProxy()
+                    for met in self.metrics:
+                        mval = met(d, output)
+                        setattr(metvals, sanitize_name(met.name.lower()), mval)
+                        meter.u(met.name, mval.item())
+                    if training:
+                        loss = self.loss(d, output, metvals)
                 if training:
-                    loss = self.loss(d, output, metvals)
-            if training:
-                loss.backward()
-                skip = False
-                for prx in self.processors:
-                    skip = skip or prx.pre_step(self.model, self.optimizer, metvals)
-                if not skip:
-                    self.gscaler.step(self.optimizer)
-                    self.gscaler.update()
-                    if self.scheduler is not None and self.scheduler_base == "step":
-                        self.scheduler.step()
-                for prx in self.processors:
-                    prx.post_step(self.model, self.optimizer, metvals)
-                self.optimizer.zero_grad()
+                    loss.backward()
+                    skip = False
+                    if isinstance(nosync, nullcontext):
+                        for prx in self.processors:
+                            skip = skip or prx.pre_step(self.model, self.optimizer, metvals)
+                        if not skip:
+                            self.gscaler.step(self.optimizer)
+                            self.gscaler.update()
+                            if self.scheduler is not None and self.scheduler_base == "step":
+                                self.scheduler.step()
+                        for prx in self.processors:
+                            prx.post_step(self.model, self.optimizer, metvals)
+                        self.optimizer.zero_grad()
             if return_pred:
                 result.preds.append(torch_to_numpy(output))
             desc = "VT"[training] + (" %02d" % epoch if epoch is not None else "")
