@@ -200,7 +200,7 @@ class DefaultLoop:
                         setattr(metvals, sanitize_name(met.name.lower()), mval)
                         meter.u(met.name, mval.item())
                     if training:
-                        loss = self.loss(d, output, metvals)
+                        loss = self.loss(d, output, metvals) * (1 / self.accumulation)
                 if training:
                     loss.backward()
                     skip = False
