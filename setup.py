@@ -32,5 +32,5 @@ setuptools.setup(
     install_requires=[
         'tqdm', 'numpy', 'typing_extensions'
     ],
-    python_requires='~=3.6',
+    python_requires='~=3.7',
 )
